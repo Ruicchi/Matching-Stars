@@ -27,10 +27,13 @@ void main() async {
   runApp(Match2Game());
 }
 
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 class Match2Game extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorObservers: [routeObserver],
       debugShowCheckedModeBanner: false,
       title: 'Group 4\'s Matching Stars',
       theme: ThemeData(
@@ -86,14 +89,25 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  AudioPlayer _audioPlayer = AudioPlayer();
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver, RouteAware {
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _playHomePageMusic();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
+  }
+
+  @override
+  void didPopNext() {
+    _playHomePageMusic(); // Restart music when coming back to homepage
   }
 
   void _showDifficultyDialog(BuildContext context) {
@@ -163,142 +177,479 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   
   // Play homepage background music
   void _playHomePageMusic() async {
-    await _audioPlayer.setSource(AssetSource('sounds/homepage_bg_music.mp3')); // Load the homepage background music
-    await _audioPlayer.setReleaseMode(ReleaseMode.loop); // Loop the background music
-    await _audioPlayer.setVolume(0.4); // Set the volume
+    await _audioPlayer.stop();
+    await _audioPlayer.setSource(AssetSource('sounds/homepage_bg_music.mp3'));
+    await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+    await _audioPlayer.setVolume(0.4);
     await _audioPlayer.seek(Duration.zero);
-    _audioPlayer.play(AssetSource('sounds/homepage_bg_music.mp3')); // Play the music
+    _audioPlayer.play(AssetSource('sounds/homepage_bg_music.mp3'));
   }
 
   // Stop homepage background music
   void _stopHomePageMusic() async {
-    await _audioPlayer.stop(); // Stop the music
+    await _audioPlayer.stop();
   }
 
   @override
   void dispose() {
     _stopHomePageMusic();
-    WidgetsBinding.instance.removeObserver(this); // Ensure music stops when leaving the HomePage
+    WidgetsBinding.instance.removeObserver(this);
+    routeObserver.unsubscribe(this); // Unsubscribe when leaving
     super.dispose();
   }
   
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Matching Stars", // Title of the AppBar
-          style: TextStyle(
-            fontFamily: 'Stepalange', // Replace with your desired font family
-            fontSize: 24,
-            color: const Color.fromARGB(255, 255, 255, 255), // You can change the color too
-          ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text(
+        "Matching Stars",
+        style: TextStyle(
+          fontFamily: 'Stepalange',
+          fontSize: 24,
+          color: Colors.white,
         ),
-        backgroundColor: Colors.blueGrey,
       ),
-      body: Center(
-        child: AspectRatio(
-          aspectRatio: 16 / 9, // Locking the aspect ratio to 16:9
-          child: Container(
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/images/homepage_bg.png'), // Replace with your background image path
-                fit: BoxFit.cover,// Ensures the image covers the whole screen
+      backgroundColor: Colors.blueGrey,
+    ),
+    body: SingleChildScrollView(
+      child: Column(
+        children: [
+          // Fixed 16:9 homepage banner
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/images/homepage_bg.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Group 4's",
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontFamily: 'Stepalange',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  Text(
+                    "Matching Stars",
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontFamily: 'Stepalange',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    "A card-matching game",
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontFamily: 'Stepalange',
+                      fontStyle: FontStyle.italic,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 40),
+                  Image.asset(
+                    'assets/images/Sun_Logo.png',
+                    width: 150,
+                    height: 150,
+                  ),
+                  SizedBox(height: 40),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Image.asset(
+                        'assets/images/Twinkle.png',
+                        width: 60,
+                        height: 60,
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          _showDifficultyDialog(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.yellow[200],
+                          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                          textStyle: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        child: Text("Start Game"),
+                      ),
+                      Image.asset(
+                        'assets/images/Twinkle.png',
+                        width: 60,
+                        height: 60,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => LeaderboardPage()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.yellow[200],
+                      padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                      textStyle: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child: Text("Leaderboards"),
+                  ),
+                ],
               ),
             ),
+          ),
+
+          // 🔥 New Card Info Section
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Group 4's",
+                  'Learn About the Cards',
                   style: TextStyle(
-                    fontSize: 48,
-                    fontFamily: 'Stepalange',
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
-                ),
-                Text(
-                  "Matching Stars",
-                  style: TextStyle(
-                    fontSize: 60,
                     fontFamily: 'Stepalange',
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
                   ),
                 ),
-                SizedBox(height: 20),
-                Text(
-                  "A card-matching game",
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontFamily: 'Stepalange',
-                    fontStyle: FontStyle.italic,
-                    color: const Color.fromARGB(255, 255, 255, 255),
-                  ),
-                ),
-                SizedBox(height: 40),
-                Image.asset(
-                  'assets/images/Sun_Logo.png', // Replace with your logo path
-                  width: 150, // Fixed logo size
-                  height: 150, // Fixed logo size
-                ),
-                SizedBox(height: 40),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Image.asset(
-                      'assets/images/Twinkle.png', // Replace with your side image path
-                      width: 60, // Fixed side image size
-                      height: 60, // Fixed side image size
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        _showDifficultyDialog(context); // Show difficulty dialog
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.yellow[200], // Light yellow background color
-                        padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32), // Increase button size
-                        textStyle: TextStyle(
-                          fontSize: 20, // Make text larger
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      child: Text("Start Game"),
-                    ),
-                    Image.asset(
-                      'assets/images/Twinkle.png', // Replace with your side image path
-                      width: 60, // Fixed side image size
-                      height: 60, // Fixed side image size
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => LeaderboardPage()),
-                  );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.yellow[200], // Light yellow background color
-                    padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32), // Increase button size
-                    textStyle: TextStyle(
-                      fontSize: 20, // Make text larger
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  child: Text("Leaderboards"),
-                ),
+                SizedBox(height: 12),
+                _buildCardInfoSection(),
               ],
             ),
           ),
-        ),
+        ],
       ),
-    );
+    ),
+  );
   }
 }
+
+Widget _buildCardInfoSection() {
+  final cards = [
+    {
+      'title': 'Asteroid',
+      'description': 'A rocky object that orbits the Sun, mostly found between Mars and Jupiter.',
+      'image': 'assets/images/Asteroid.png',
+    },
+    {
+      'title': 'Astronaut',
+      'description': 'A person trained to travel and work in space.',
+      'image': 'assets/images/Astronaut.png',
+    },
+    {
+      'title': 'Aurora',
+      'description': 'Colorful lights in the sky caused by solar energy hitting Earth’s atmosphere.',
+      'image': 'assets/images/Aurora.png',
+    },
+    {
+      'title': 'Black Hole',
+      'description': 'A space object with gravity so strong that it pulls anything near it and nothing can escape it.',
+      'image': 'assets/images/Black_Hole.png',
+    },
+    {
+      'title': 'Comet',
+      'description': 'A ball of ice and dust that leaves a glowing tail when near the Sun.',
+      'image': 'assets/images/Comet.png',
+    },
+    {
+      'title': 'Constellation',
+      'description': 'A group of stars forming a pattern in the sky.',
+      'image': 'assets/images/Constellation.png',
+    },
+    {
+      'title': 'Earth',
+      'description': 'Third planet from the Sun. Known for being the only planet that harbors water and life.',
+      'image': 'assets/images/Earth.png',
+    },
+    {
+      'title': 'Eclipse',
+      'description': 'When one space object blocks the light from another.',
+      'image': 'assets/images/Eclipse.png',
+    },
+    {
+      'title': 'Jetpack',
+      'description': 'A wearable device that lets people fly for short distances.',
+      'image': 'assets/images/Jetpack.png',
+    },
+    {
+      'title': 'Jupiter',
+      'description': 'The fifth planet from the Sun and known as the largest planet in our solar system with a big red storm.',
+      'image': 'assets/images/Jupiter.png',
+    },
+    {
+      'title': 'Mars',
+      'description': 'Fourth planet from the Sun.Known for its signature rocky and red soil with a thin layer of atmosphere.',
+      'image': 'assets/images/Mars.png',
+    },
+    {
+      'title': 'Mercury',
+      'description': 'The nearest planet from the Sun. It is also known as the smallest planet in the solar system.',
+      'image': 'assets/images/Mercury.png',
+    },
+    {
+      'title': 'Meteor Shower',
+      'description': 'Many meteors appearing in the sky at once, often from a comet.',
+      'image': 'assets/images/Meteor_Shower.png',
+    },
+    {
+      'title': 'Meteor',
+      'description': 'A space rock that burns brightly as it falls through Earth/s atmosphere.',
+      'image': 'assets/images/Meteor.png',
+    },
+    {
+      'title': 'Milky Way',
+      'description': 'The galaxy where our solar system is located.',
+      'image': 'assets/images/Milky_Way.png',
+    },
+    {
+      'title': 'Moon',
+      'description': 'An object that orbits a planet or something else that is not a star.',
+      'image': 'assets/images/Moon.png',
+    },
+    {
+      'title': 'Neptune',
+      'description': 'The eighth planet from the Sun and known as a cold, blue planet, far from the Sun.',
+      'image': 'assets/images/Neptune.png',
+    },
+    {
+      'title': 'Pluto',
+      'description': 'The ninth planet from the Sun and also known as a small, icy dwarf planet beyond Neptune.',
+      'image': 'assets/images/Pluto.png',
+    },
+    {
+     'title': 'Rocket',
+      'description': 'Vehicles that launch into space using powerful engines.',
+      'image': 'assets/images/Rocket.png',
+    },
+    {
+      'title': 'Satellite',
+      'description': 'An object that orbits a planet, either natural like the Moon or man-made',
+      'image': 'assets/images/Satellite.png',
+    },
+    {
+      'title': 'Saturn',
+      'description': 'The sixth planet from the Sun and is also the second largest planet in the solar system. A gas giant known for its signature ring system.',
+      'image': 'assets/images/Saturn.png',
+    },
+    {
+      'title': 'Stars',
+      'description': 'A giant ball of burning gas that gives off light and heat.',
+      'image': 'assets/images/Stars.png',
+    },
+    {
+      'title': 'Sun',
+      'description': 'The central object of our solar system, a massive, hot ball of plasma primarily composed of hydrogen and helium, and the source of light and heat for Earth.',
+      'image': 'assets/images/Sun.png',
+    },
+    {
+      'title': 'Super Giant',
+      'description': 'A massive star that is much larger and brighter than the Sun.',
+      'image': 'assets/images/Super_Giant.png',
+    },
+    {
+      'title': 'Supernova',
+      'description': 'A powerful explosion of a dying star.',
+      'image': 'assets/images/Supernova.png',
+    },
+    {
+      'title': 'Telescope',
+      'description': 'A tool that helps us see faraway objects in space.',
+      'image': 'assets/images/Telescope.png',
+    },
+    {
+      'title': 'UFO',
+      'description': 'An unidentified flying object seen in the sky.',
+      'image': 'assets/images/UFO.png',
+    },
+    {
+      'title': 'Uranus',
+      'description': 'The seventh planet from the Sun and also known as a cold, pale-blue planet that has faint rings.',
+      'image': 'assets/images/Uranus.png',
+    },
+    {
+      'title': 'Venus',
+      'description': 'Second planet from the Sun. Known for being the hottest planet in the solar system.',
+      'image': 'assets/images/Venus.png',
+    },
+    {
+      'title': 'Wormhole',
+      'description': 'A theoretical tunnel in space that could connect distant places.',
+      'image': 'assets/images/Wormhole.png',
+    },
+  ];
+
+  return SizedBox(
+  height: 900,
+  child: LayoutBuilder(
+    builder: (context, constraints) {
+      int cardsPerRow = 10;
+
+      double cardWidth = constraints.maxWidth / cardsPerRow;
+      cardWidth = cardWidth < 120 ? 120 : cardWidth;
+
+      double cardAspectRatio = 750 / 1050;
+      double cardHeight = cardWidth / cardAspectRatio;
+
+      return GridView.builder(
+        physics: const BouncingScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cardsPerRow,
+          childAspectRatio: cardWidth / (cardHeight + 50),
+          crossAxisSpacing: 12.0,
+          mainAxisSpacing: 12.0,
+        ),
+        itemCount: cards.length,
+        itemBuilder: (context, index) {
+          final card = cards[index];
+
+          return GestureDetector(
+            onTap: () {
+              showDialog(
+  context: context,
+  builder: (_) => Dialog(
+    insetPadding: const EdgeInsets.all(16),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        // Set a max width for the dialog content
+        double dialogMaxWidth = 600;
+        double dialogWidth = constraints.maxWidth < dialogMaxWidth
+            ? constraints.maxWidth * 0.9
+            : dialogMaxWidth;
+
+        double imageAspectRatio = 750 / 1050;
+        double imageWidth = dialogWidth;
+        double imageHeight = imageWidth / imageAspectRatio;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: dialogMaxWidth),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.rotationY(3.14159),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        card['image']!,
+                        width: imageWidth,
+                        height: imageHeight,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    card['title']!,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    card['description']!,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('Close'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  ),
+);
+
+            },
+            child: Column(
+              children: [
+                Container(
+                  width: cardWidth,
+                  height: cardHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.rotationY(3.14159),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                        image: DecorationImage(
+                          image: AssetImage(card['image']!),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: Text(
+                    card['title']!,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.black,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  ),
+);
+
+}
+
 
 class RotationYTransition extends StatelessWidget {
   final Animation<double> turns;
