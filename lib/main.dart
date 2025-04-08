@@ -3,10 +3,16 @@ import 'dart:math';
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:match_2_card_game/database_helper.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  sqfliteFfiInit(); // Initialize FFI support
+
+  databaseFactory = databaseFactoryFfi;
   // Initialize the window manager
   await windowManager.ensureInitialized();
 
@@ -35,20 +41,59 @@ class Match2Game extends StatelessWidget {
     );
   }
 }
+class LeaderboardPage extends StatefulWidget {
+  @override
+  _LeaderboardPageState createState() => _LeaderboardPageState();
+}
+
+class _LeaderboardPageState extends State<LeaderboardPage> {
+  List<Map<String, dynamic>> scores = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadScores();
+  }
+
+  void _loadScores() async {
+    final result = await DatabaseHelper.instance.getTopScores();
+    setState(() {
+      scores = result;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Leaderboards")),
+      body: ListView.builder(
+        itemCount: scores.length,
+        itemBuilder: (context, index) {
+          final item = scores[index];
+          return ListTile(
+            leading: Text('#${index + 1}'),
+            title: Text(item['playerName']),
+            subtitle: Text('Score: ${item['score']} | Difficulty: ${item['difficulty']}'),
+          );
+        },
+      ),
+    );
+  }
+}
 
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _playHomePageMusic();
-    
   }
 
   void _showDifficultyDialog(BuildContext context) {
@@ -64,6 +109,7 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
                 child: ElevatedButton(
                   onPressed: () {
+                    _stopHomePageMusic();
                     Navigator.pop(context);
                     Navigator.push(
                       context,
@@ -79,6 +125,7 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
                 child: ElevatedButton(
                   onPressed: () {
+                    _stopHomePageMusic();
                     Navigator.pop(context);
                     Navigator.push(
                       context,
@@ -94,6 +141,7 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.symmetric(vertical: 4.0),
                 child: ElevatedButton(
                   onPressed: () {
+                    _stopHomePageMusic();
                     Navigator.pop(context);
                     Navigator.push(
                       context,
@@ -112,11 +160,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  
   // Play homepage background music
   void _playHomePageMusic() async {
     await _audioPlayer.setSource(AssetSource('sounds/homepage_bg_music.mp3')); // Load the homepage background music
     await _audioPlayer.setReleaseMode(ReleaseMode.loop); // Loop the background music
     await _audioPlayer.setVolume(0.4); // Set the volume
+    await _audioPlayer.seek(Duration.zero);
     _audioPlayer.play(AssetSource('sounds/homepage_bg_music.mp3')); // Play the music
   }
 
@@ -127,10 +177,11 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _stopHomePageMusic(); // Ensure music stops when leaving the HomePage
+    _stopHomePageMusic();
+    WidgetsBinding.instance.removeObserver(this); // Ensure music stops when leaving the HomePage
     super.dispose();
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -203,7 +254,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                     ElevatedButton(
                       onPressed: () {
-                        _stopHomePageMusic(); // Stop music when navigating to the game page
                         _showDifficultyDialog(context); // Show difficulty dialog
                       },
                       style: ElevatedButton.styleFrom(
@@ -226,7 +276,10 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () {
-                    // Add leaderboard navigation if necessary
+                    Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => LeaderboardPage()),
+                  );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.yellow[200], // Light yellow background color
@@ -614,27 +667,46 @@ void _checkForWin() {
   }
 }
 
+TextEditingController _nameController = TextEditingController();
+
 void _showWinDialog() {
-  int totalScore = score * remainingTime; // Calculate total score
+  int totalScore = score * remainingTime;
   showDialog(
     context: context,
-    builder: (BuildContext context) {
+    builder: (context) {
       return AlertDialog(
         title: Text('You Win!'),
-        content: Text('Your Final Score: $totalScore\nTime Left: $remainingTime seconds'),
-        actions: <Widget>[
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Final Score: $totalScore'),
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(labelText: 'Enter your name'),
+            ),
+          ],
+        ),
+        actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              if (_nameController.text.isNotEmpty) {
+                await DatabaseHelper.instance.insertScore(
+                  _nameController.text,
+                  totalScore,
+                  widget.difficulty,
+                );
+              }
               Navigator.pop(context);
-              Navigator.pop(context); // Navigate back to the home page
+              Navigator.pop(context);
             },
-            child: Text('Back to Home'),
+            child: Text('Save and Exit'),
           ),
         ],
       );
     },
   );
 }
+
 
   void _showGameOver() {
     int finalScore = score * remainingTime;
